@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SM AI — Chat</title>
+<style>
+  :root{
+    --bg:#0B0E14;
+    --surface:#12161F;
+    --surface-2:#181D28;
+    --border:#232A38;
+    --text:#E9ECF1;
+    --muted:#8A93A6;
+    --copper:#E08A3C;
+    --copper-dim:#8A5A2A;
+    --signal:#4C7CF0;
+    --bad:#E5555C;
+    --font-display:'Space Grotesk','Segoe UI',sans-serif;
+    --font-body:'Inter','Segoe UI',sans-serif;
+    --font-mono:'JetBrains Mono','Consolas',monospace;
+  }
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;background:var(--bg);color:var(--text);font-family:var(--font-body);overflow:hidden;}
+  button{font-family:var(--font-body);cursor:pointer;}
+  ::selection{background:var(--copper);color:#0B0E14;}
+
+  #app{display:flex;flex-direction:column;height:100vh;height:100dvh;}
+
+  /* ---------- Header ---------- */
+  header{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--border);flex-shrink:0;padding-top:calc(14px + env(safe-area-inset-top));}
+  .brand{display:flex;align-items:center;gap:10px;font-family:var(--font-display);font-weight:700;font-size:17px;}
+  .brand .mark{width:26px;height:26px;border-radius:7px;background:linear-gradient(135deg,var(--copper),var(--signal));display:flex;align-items:center;justify-content:center;font-size:12px;color:#0B0E14;flex-shrink:0;}
+  .header-right{display:flex;align-items:center;gap:10px;}
+
+  .icon-btn{width:36px;height:36px;border-radius:8px;background:var(--surface-2);border:1px solid var(--border);color:var(--muted);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .icon-btn:hover{color:var(--text);border-color:var(--copper-dim);}
+  .icon-btn svg{width:17px;height:17px;}
+
+  /* ---------- Message thread ---------- */
+  main{flex:1;overflow-y:auto;padding:24px 16px 12px;}
+  .thread{max-width:720px;margin:0 auto;display:flex;flex-direction:column;gap:18px;}
+
+  .empty-state{max-width:720px;margin:14vh auto 0;text-align:center;color:var(--muted);}
+  .empty-state h1{font-family:var(--font-display);font-size:26px;color:var(--text);margin:0 0 8px;font-weight:600;}
+  .empty-state p{margin:0;font-size:14.5px;}
+
+  .msg{display:flex;gap:12px;max-width:100%;}
+  .msg .avatar{width:26px;height:26px;border-radius:7px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;font-family:var(--font-display);margin-top:2px;}
+  .msg.user{flex-direction:row-reverse;}
+  .msg.user .avatar{background:var(--surface-2);border:1px solid var(--border);color:var(--muted);}
+  .msg.assistant .avatar{background:linear-gradient(135deg,var(--copper),var(--signal));color:#0B0E14;}
+  .bubble{padding:11px 15px;border-radius:14px;font-size:14.5px;line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere;max-width:min(560px,80%);}
+  .msg.user .bubble{background:var(--surface-2);border:1px solid var(--border);border-top-right-radius:4px;}
+  .msg.assistant .bubble{background:var(--surface);border:1px solid var(--border);border-top-left-radius:4px;}
+  .msg.error .bubble{border-color:var(--bad);color:var(--bad);background:rgba(229,85,92,0.08);}
+
+  .typing{display:flex;gap:4px;padding:4px 0;}
+  .typing span{width:6px;height:6px;border-radius:50%;background:var(--muted);animation:pulse 1.1s infinite ease-in-out;}
+  .typing span:nth-child(2){animation-delay:.15s;}
+  .typing span:nth-child(3){animation-delay:.3s;}
+  @keyframes pulse{0%,60%,100%{opacity:.3;transform:translateY(0);}30%{opacity:1;transform:translateY(-3px);}}
+
+  /* ---------- Composer ---------- */
+  .composer-wrap{flex-shrink:0;padding:10px 16px calc(14px + env(safe-area-inset-bottom));}
+  .composer{max-width:720px;margin:0 auto;display:flex;align-items:flex-end;gap:8px;background:var(--surface-2);border:1px solid var(--border);border-radius:16px;padding:8px 8px 8px 10px;}
+  .composer:focus-within{border-color:var(--copper-dim);}
+  textarea{flex:1;resize:none;border:none;background:none;color:var(--text);font-family:var(--font-body);font-size:15px;line-height:1.5;max-height:160px;padding:8px 0;outline:none;}
+  textarea::placeholder{color:var(--muted);}
+  .attach-btn{width:38px;height:38px;border-radius:11px;background:none;border:none;color:var(--muted);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .attach-btn:hover{color:var(--text);}
+  .attach-btn:disabled{opacity:.4;cursor:not-allowed;}
+  .attach-btn svg{width:19px;height:19px;}
+  .send-btn{width:38px;height:38px;border-radius:11px;background:var(--copper);border:none;color:#0B0E14;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:opacity .15s;}
+  .send-btn:disabled{opacity:.4;cursor:not-allowed;}
+  .send-btn svg{width:17px;height:17px;}
+  .hint{max-width:720px;margin:8px auto 0;font-size:11.5px;color:var(--muted);text-align:center;min-height:14px;}
+
+  /* ---------- Attachments ---------- */
+  .attach-row{max-width:720px;margin:0 auto;display:none;flex-wrap:wrap;gap:8px;padding-bottom:8px;}
+  .attach-row.open{display:flex;}
+  .attach-chip{position:relative;width:52px;height:52px;border-radius:10px;overflow:hidden;border:1px solid var(--border);flex-shrink:0;background:var(--surface-2);}
+  .attach-thumb{width:100%;height:100%;object-fit:cover;cursor:pointer;}
+  .attach-remove{position:absolute;top:2px;right:2px;width:18px;height:18px;border-radius:50%;background:rgba(5,7,11,0.72);border:none;color:#fff;font-size:13px;line-height:1;display:flex;align-items:center;justify-content:center;padding:0;}
+  .attach-remove:hover{background:var(--bad);}
+
+  /* ---------- Message images ---------- */
+  .msg-images{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;}
+  .msg-images:last-child{margin-bottom:0;}
+  .msg-image-thumb{width:96px;height:96px;object-fit:cover;border-radius:10px;cursor:zoom-in;border:1px solid var(--border);}
+
+  /* ---------- Settings modal ---------- */
+  .modal-overlay{position:fixed;inset:0;background:rgba(5,7,11,0.65);display:none;align-items:center;justify-content:center;z-index:100;padding:20px;}
+  .modal-overlay.open{display:flex;}
+  .modal{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;width:100%;max-width:420px;}
+  .modal h2{font-family:var(--font-display);font-size:18px;margin:0 0 4px;}
+  .modal p.sub{color:var(--muted);font-size:13px;margin:0 0 18px;}
+  .modal label{display:block;font-size:12.5px;color:var(--muted);margin:14px 0 6px;}
+  .modal input{width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface-2);color:var(--text);font-family:var(--font-mono);font-size:13px;}
+  .modal input:focus{outline:2px solid var(--signal);outline-offset:1px;}
+  .modal-actions{display:flex;gap:10px;margin-top:20px;}
+  .btn{flex:1;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--surface-2);color:var(--text);font-size:14px;font-weight:500;}
+  .btn-primary{background:var(--copper);border-color:var(--copper);color:#0B0E14;font-weight:600;}
+  .modal-note{font-size:11.5px;color:var(--muted);margin-top:16px;line-height:1.5;}
+
+  ::-webkit-scrollbar{width:8px;}
+  ::-webkit-scrollbar-thumb{background:var(--border);border-radius:8px;}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <header>
+    <div class="brand"><span class="mark">SM</span> SM AI</div>
+    <div class="header-right">
+      <button class="icon-btn" id="settingsBtn" aria-label="Settings" title="Settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main id="main">
+    <div class="empty-state" id="emptyState">
+      <h1>What can I help you build?</h1>
+      <p>Ask anything, or attach a photo or PDF to have it analyzed — this runs on your own SM AI endpoint.</p>
+    </div>
+    <div class="thread" id="thread"></div>
+  </main>
+
+  <div class="composer-wrap">
+    <div class="attach-row" id="attachRow"></div>
+    <div class="composer">
+      <input type="file" id="fileInput" accept="image/*,application/pdf" multiple hidden>
+      <button class="attach-btn" id="attachBtn" type="button" aria-label="Attach photo or PDF" title="Attach photo or PDF">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a5.5 5.5 0 0 1-7.78-7.78l9.19-9.19a3.67 3.67 0 0 1 5.19 5.19l-9.2 9.19a1.83 1.83 0 0 1-2.59-2.59l8.49-8.48"/></svg>
+      </button>
+      <textarea id="input" placeholder="Message SM AI…" rows="1"></textarea>
+      <button class="send-btn" id="sendBtn" aria-label="Send">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      </button>
+    </div>
+    <p class="hint" id="hint"></p>
+  </div>
+</div>
+
+<div class="modal-overlay" id="settingsOverlay">
+  <div class="modal">
+    <h2>Connection settings</h2>
+    <p class="sub">Your key and endpoint are stored only in this browser (localStorage) — never sent anywhere but your own SM AI API.</p>
+    <label>API base URL</label>
+    <input id="apiBaseInput" spellcheck="false">
+    <label>API key</label>
+    <input id="apiKeyInput" spellcheck="false">
+    <div class="modal-actions">
+      <button class="btn" id="closeSettings">Cancel</button>
+      <button class="btn btn-primary" id="saveSettings">Save</button>
+    </div>
+    <p class="modal-note">Heads up: this page keeps the key in your browser only. If you ever host this file publicly with the key pre-filled in the source, anyone who views the page source can read it — for a public-facing product, proxy requests through your own server instead.</p>
+      </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+// ---------------------------------------------------------------------
+// Config — defaults to the endpoint/key you gave me. Editable any time
+// via the gear icon; overrides are kept in localStorage only.
+// ---------------------------------------------------------------------
+const DEFAULT_API_BASE = "https://sahin-1.smai-api-core.workers.dev";
+const DEFAULT_API_KEY  = "SMAI_vqQf3io6uiVfRelYToBGFfIp2NxLK4CK";
+
+const state = {
+  apiBase: localStorage.getItem('smchat_base') || DEFAULT_API_BASE,
+  apiKey: localStorage.getItem('smchat_key') || DEFAULT_API_KEY,
+  modelQueue: [], // every enabled chat-capable model, tried in order automatically
+  visionQueue: [], // subset of modelQueue that can accept image input (photo/PDF analysis)
+  messages: [], // {role, content}
+  attachments: [], // pending photo/PDF-page attachments not yet sent: [{ dataUrl, label }]
+};
+
+// Combined attachment size kept under the API's 10MB-per-request image cap,
+// with headroom for the rest of the JSON payload.
+const MAX_ATTACH_BYTES = 9 * 1024 * 1024;
+// Configure the PDF.js worker (loaded via the <script> tag above) so PDF
+// pages can be rasterized to images entirely in the browser.
+if (typeof pdfjsLib !== 'undefined') {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+}
+
+const el = (tag, attrs = {}, children = []) => {
+  const node = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === 'class') node.className = v;
+    else if (k.startsWith('on')) node.addEventListener(k.slice(2), v);
+    else node.setAttribute(k, v);
+  }
+  for (const c of [].concat(children)) {
+    if (c == null) continue;
+    node.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
+  }
+  return node;
+};
+
+// ---------------------------------------------------------------------
+// Model selection is fully automatic — no picker. On load we fetch every
+// enabled chat-capable model from /v1/models and keep the whole list as
+// a priority queue. Sending a message tries the first model; if that
+// specific model errors out (disabled, overloaded, etc.) it silently
+// retries the next one, so "one API + URL" really does use all models
+// without the person ever choosing one.
+// ---------------------------------------------------------------------
+async function loadModels() {
+  const hint = document.getElementById('hint');
+  try {
+    const resp = await fetch(state.apiBase + '/v1/models');
+    if (!resp.ok) throw new Error('bad status');
+    const data = await resp.json();
+    const chatCapable = data.data.filter(m => m.status === 'active' && m.capabilities.includes('chat'));
+    state.modelQueue = chatCapable.map(m => m.id);
+    state.visionQueue = chatCapable.filter(m => m.capabilities.includes('vision')).map(m => m.id);
+    hint.textContent = state.modelQueue.length ? '' : 'No chat-capable models are enabled on this endpoint.';
+  } catch (e) {
+    hint.textContent = '';
+  }
+}
+
+// ---------------------------------------------------------------------
+// Settings modal
+// ---------------------------------------------------------------------
+const overlay = document.getElementById('settingsOverlay');
+document.getElementById('settingsBtn').addEventListener('click', () => {
+  document.getElementById('apiBaseInput').value = state.apiBase;
+  document.getElementById('apiKeyInput').value = state.apiKey;
+  overlay.classList.add('open');
+});
+document.getElementById('closeSettings').addEventListener('click', () => overlay.classList.remove('open'));
+overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.classList.remove('open'); });
+document.getElementById('saveSettings').addEventListener('click', () => {
+  const base = document.getElementById('apiBaseInput').value.trim().replace(/\/$/, '');
+  const key = document.getElementById('apiKeyInput').value.trim();
+  if (base) { state.apiBase = base; localStorage.setItem('smchat_base', base); }
+  if (key) { state.apiKey = key; localStorage.setItem('smchat_key', key); }
+  overlay.classList.remove('open');
+  loadModels();
+});
+
+// ---------------------------------------------------------------------
+// Photo + PDF attachments — everything happens client-side. Images are
+// downscaled and re-encoded as JPEG data URLs; PDF pages are rasterized
+// to images with PDF.js. Both end up as `image_url` content blocks sent
+// alongside the text, matching the API's vision-input format, and only
+// ever go out over the same request the user's own key already uses.
+// ---------------------------------------------------------------------
+const fileInput = document.getElementById('fileInput');
+const attachBtn = document.getElementById('attachBtn');
+const attachRow = document.getElementById('attachRow');
+const hint = document.getElementById('hint');
+
+attachBtn.addEventListener('click', () => { if (!attachBtn.disabled) fileInput.click(); });
+fileInput.addEventListener('change', async () => {
+  const files = Array.from(fileInput.files || []);
+  fileInput.value = ''; // allow re-selecting the same file later
+  if (files.length) await handleFiles(files);
+});
+
+function loadImageFromFile(file) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error('Could not read image'));
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+async function imageFileToDataUrl(file, maxDim = 1600, quality = 0.85) {
+  const img = await loadImageFromFile(file);
+  let { width, height } = img;
+  if (width > maxDim || height > maxDim) {
+    const scale = maxDim / Math.max(width, height);
+    width = Math.round(width * scale);
+    height = Math.round(height * scale);
+  }
+  const canvas = document.createElement('canvas');
+  canvas.width = width; canvas.height = height;
+  canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+  URL.revokeObjectURL(img.src);
+  return canvas.toDataURL('image/jpeg', quality);
+}
+
+async function pdfFileToPageDataUrls(file, maxPages = 20, scale = 1.5) {
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+  const rendered = Math.min(pdf.numPages, maxPages);
+  const urls = [];
+  for (let i = 1; i <= rendered; i++) {
+    const page = await pdf.getPage(i);
+    const viewport = page.getViewport({ scale });
+    const canvas = document.createElement('canvas');
+    canvas.width = viewport.width; canvas.height = viewport.height;
+    await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+    urls.push(canvas.toDataURL('image/jpeg', 0.82));
+  }
+  return { urls, totalPages: pdf.numPages, rendered };
+}
+
+function attachmentBytes() {
+  return state.attachments.reduce((sum, a) => sum + Math.ceil(a.dataUrl.length * 0.75), 0);
+}
+
+function addAttachment(dataUrl, label) {
+  if (attachmentBytes() + Math.ceil(dataUrl.length * 0.75) > MAX_ATTACH_BYTES) {
+    hint.textContent = 'Skipped "' + label + '" — attached files are getting close to the request size limit.';
+    return;
+  }
+  state.attachments.push({ dataUrl, label });
+  renderAttachRow();
+}
+
+function removeAttachment(index) {
+  state.attachments.splice(index, 1);
+  renderAttachRow();
+}
+
+function clearAttachments() {
+  state.attachments = [];
+  renderAttachRow();
+}
+
+function renderAttachRow() {
+  attachRow.innerHTML = '';
+  attachRow.classList.toggle('open', state.attachments.length > 0);
+  state.attachments.forEach((a, idx) => {
+    attachRow.appendChild(el('div', { class: 'attach-chip', title: a.label }, [
+      el('img', { class: 'attach-thumb', src: a.dataUrl, onclick: () => window.open(a.dataUrl, '_blank') }),
+      el('button', { class: 'attach-remove', type: 'button', 'aria-label': 'Remove attachment', onclick: () => removeAttachment(idx) }, '×'),
+    ]));
+  });
+}
+
+async function handleFiles(files) {
+  attachBtn.disabled = true;
+  hint.textContent = 'Processing attachment' + (files.length > 1 ? 's' : '') + '…';
+  let note = '';
+  try {
+    for (const file of files) {
+      if (file.type.startsWith('image/')) {
+        addAttachment(await imageFileToDataUrl(file), file.name);
+      } else if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+        if (typeof pdfjsLib === 'undefined') { note = 'PDF support did not load — check your internet connection and try again.'; continue; }
+        const { urls, totalPages, rendered } = await pdfFileToPageDataUrls(file);
+        urls.forEach((u, i) => addAttachment(u, file.name + ' (page ' + (i + 1) + ')'));
+        if (totalPages > rendered) note = 'Only the first ' + rendered + ' of ' + totalPages + ' pages of "' + file.name + '" were attached.';
+      } else {
+        note = '"' + file.name + '" is not a supported type — attach images or PDFs.';
+      }
+    }
+  } catch (e) {
+    note = 'Could not process that file — it may be corrupted or password-protected.';
+  } finally {
+    attachBtn.disabled = false;
+    hint.textContent = note || (state.attachments.length ? state.attachments.length + ' file' + (state.attachments.length > 1 ? 's' : '') + ' attached — add a message and send, or send as-is.' : '');
+  }
+}
+
+// ---------------------------------------------------------------------
+// Chat thread rendering
+// ---------------------------------------------------------------------
+const thread = document.getElementById('thread');
+const mainEl = document.getElementById('main');
+const emptyState = document.getElementById('emptyState');
+
+function renderMessage(role, content) {
+  emptyState.style.display = 'none';
+  let bubbleChildren = content;
+  if (content && typeof content === 'object' && Array.isArray(content.images)) {
+    bubbleChildren = [];
+    if (content.images.length) {
+      bubbleChildren.push(el('div', { class: 'msg-images' }, content.images.map(src =>
+        el('img', { class: 'msg-image-thumb', src, onclick: () => window.open(src, '_blank') })
+      )));
+    }
+    if (content.text) bubbleChildren.push(el('div', {}, content.text));
+  }
+  const bubble = el('div', { class: 'bubble' }, bubbleChildren);
+  const avatar = el('div', { class: 'avatar' }, role === 'user' ? 'You' : 'SM');
+  const msg = el('div', { class: 'msg ' + role }, [avatar, bubble]);
+  thread.appendChild(msg);
+  mainEl.scrollTop = mainEl.scrollHeight;
+  return bubble;
+}
+
+function renderTyping() {
+  const bubble = el('div', { class: 'bubble' }, [
+    el('div', { class: 'typing' }, [el('span', {}), el('span', {}), el('span', {})]),
+  ]);
+  const avatar = el('div', { class: 'avatar' }, 'SM');
+  const msg = el('div', { class: 'msg assistant' }, [avatar, bubble]);
+  thread.appendChild(msg);
+  mainEl.scrollTop = mainEl.scrollHeight;
+  return msg;
+}
+
+// ---------------------------------------------------------------------
+// Sending a message
+// ---------------------------------------------------------------------
+const input = document.getElementById('input');
+const sendBtn = document.getElementById('sendBtn');
+
+input.addEventListener('input', () => {
+  input.style.height = 'auto';
+  input.style.height = Math.min(input.scrollHeight, 160) + 'px';
+});
+input.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+});
+sendBtn.addEventListener('click', send);
+
+async function send() {
+  const text = input.value.trim();
+  const attachments = state.attachments.slice();
+  if ((!text && !attachments.length) || sendBtn.disabled) return;
+  if (!state.modelQueue.length) { await loadModels(); }
+  if (!state.modelQueue.length) { renderMessage('error', 'No model is reachable yet — open Settings and check the API base URL, or see the note below the composer.'); return; }
+
+  let queue = state.modelQueue;
+  if (attachments.length) {
+    if (!state.visionQueue.length) {
+      renderMessage('error', 'No vision-capable model is enabled on this endpoint — photo and PDF analysis needs a model like SM-VISION-1 or SM-VISION-2 turned on.');
+      return;
+    }
+    queue = state.visionQueue;
+  }
+
+  input.value = ''; input.style.height = 'auto';
+  clearAttachments();
+  hint.textContent = '';
+
+  const apiContent = attachments.length
+    ? [{ type: 'text', text: text || 'Please analyze the attached file(s).' }, ...attachments.map(a => ({ type: 'image_url', image_url: { url: a.dataUrl } }))]
+    : text;
+  state.messages.push({ role: 'user', content: apiContent });
+  renderMessage('user', attachments.length ? { text, images: attachments.map(a => a.dataUrl) } : text);
+
+  sendBtn.disabled = true;
+  attachBtn.disabled = true;
+  const typingMsg = renderTyping();
+
+  let lastError = null;
+  for (const model of queue) {
+    try {
+      const resp = await fetch(state.apiBase + '/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + state.apiKey,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ model, messages: state.messages }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) {
+        lastError = (data && data.error && data.error.message) || `Request failed (${resp.status})`;
+        continue; // try the next model in the queue automatically
+      }
+      typingMsg.remove();
+      const reply = data.choices?.[0]?.message?.content ?? '(empty response)';
+      state.messages.push({ role: 'assistant', content: reply });
+      renderMessage('assistant', reply);
+      sendBtn.disabled = false;
+      attachBtn.disabled = false;
+      input.focus();
+      return;
+    } catch (e) {
+      lastError = 'Could not reach ' + state.apiBase + ' — check your connection and the API base URL in Settings.';
+      break; // a network/CORS failure will fail identically for every model, no point retrying the queue
+    }
+  }
+
+  typingMsg.remove();
+  renderMessage('error', lastError || 'All available models failed to respond.');
+  sendBtn.disabled = false;
+  attachBtn.disabled = false;
+  input.focus();
+}
+
+loadModels();
+</script>
+</body>
+</html>
